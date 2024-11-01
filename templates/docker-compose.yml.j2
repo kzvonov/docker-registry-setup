@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  registry:
+    image: registry:2
+    ports:
+      - "443:5000"
+    environment:
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+      REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      REGISTRY_AUTH: "htpasswd"
+      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_HTTP_HEADERS_X_CONTENT_TYPE_OPTIONS: "[nosniff]"
+      REGISTRY_HTTP_HEADERS_X_FRAME_OPTIONS: "[DENY]"
+    volumes:
+      - ./auth:/auth:ro
+      - ./certs:/certs:ro
+      - ./data:/var/lib/registry
+    restart: unless-stopped

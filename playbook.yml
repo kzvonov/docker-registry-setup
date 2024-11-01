@@ -1,0 +1,63 @@
+---
+- name: Set up private Docker registry
+  hosts: registry
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+
+  tasks:
+    - name: Install packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - openssl
+        state: present
+        update_cache: yes
+
+    - name: Create registry directory structure
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ registry_dir }}"
+        - "{{ registry_dir }}/auth"
+        - "{{ registry_dir }}/certs"
+        - "{{ registry_dir }}/data"
+
+    - name: Configure firewall
+      include_tasks: tasks/firewall.yml
+
+    - name: Configure certificates
+      include_tasks: tasks/certificates.yml
+
+    - name: Check if htpasswd file exists
+      stat:
+        path: "{{ registry_dir }}/auth/htpasswd"
+      register: htpasswd_file
+
+    - name: Create htpasswd file for Docker registry
+      command: >
+        docker run --rm
+        --entrypoint htpasswd
+        httpd:2 -Bbn {{ registry_user }} {{ registry_password }}
+      register: htpasswd_output
+      when: not htpasswd_file.stat.exists
+
+    - name: Save htpasswd output to file
+      copy:
+        content: "{{ htpasswd_output.stdout }}"
+        dest: "{{ registry_dir }}/auth/htpasswd"
+        mode: '0644'
+      when: not htpasswd_file.stat.exists
+
+    - name: Create docker-compose.yml file
+      template:
+        src: docker-compose.yml.j2
+        dest: "{{ registry_dir }}/docker-compose.yml"
+
+    - name: Start docker-compose.yml
+      docker_compose:
+        project_src: "{{ registry_dir }}"
+        state: present

@@ -1,0 +1,4 @@
+.vscode
+
+vars/secrets.yml
+inventory

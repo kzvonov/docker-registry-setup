@@ -1,0 +1,41 @@
+---
+
+- name: Configure firewall - Allow 80 port
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+
+- name: Install certbot
+  apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Obtain SSL certificate
+  command: >
+    certbot certonly --standalone
+    -d {{ registry_domain }}
+    --agree-tos
+    --email {{ registry_domain_admin_email }}
+    --non-interactive
+  register: certbot_result
+
+- name: Copy certificate
+  copy:
+    src: "/etc/letsencrypt/live/{{ registry_domain }}/{{ item.src }}"
+    dest: "{{ registry_dir }}/certs/{{ item.dest }}"
+    mode: '0600'
+    owner: nobody
+    group: nogroup
+    remote_src: yes
+  loop:
+    - { src: "fullchain.pem", dest: "domain.crt" }
+    - { src: "privkey.pem", dest: "domain.key" }
+
+- name: Configure firewall - Deny 80 port
+  ufw:
+    rule: deny 
+    port: '80'
+    proto: tcp
